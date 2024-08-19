@@ -1,5 +1,5 @@
 [package]
-name = "create-thumbnail"
+name = "create_thumbnail"
 version = "0.1.0"
 edition = "2021"
 
