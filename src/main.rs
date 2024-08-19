@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use clap::{ArgGroup, Parser};
-use image::GenericImageView;
 use image::imageops::FilterType;
+use image::GenericImageView;
 
 mod is_animated_gif;
 
@@ -23,8 +23,8 @@ pub fn create_thumbnail(
     // TODO: Does this check do what I think?
     assert!(*path != thumbnail_path);
 
-    let img = image::open(path)
-      .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+    let img =
+        image::open(path).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
 
     // Assert that exactly one of `width` and `height` are defined
     assert!(width.is_some() || height.is_some());
@@ -32,44 +32,44 @@ pub fn create_thumbnail(
 
     // Calculate the new width/height of the image
     let (new_width, new_height) = match (width, height) {
-      (Some(w), None) if w >= img.width() => img.dimensions(),
-      (None, Some(h)) if h >= img.height() => img.dimensions(),
+        (Some(w), None) if w >= img.width() => img.dimensions(),
+        (None, Some(h)) if h >= img.height() => img.dimensions(),
 
-      (Some(w), None) => (w, w * img.height() / img.width()),
-      (None, Some(h)) => (h * img.width() / img.height(), h),
+        (Some(w), None) => (w, w * img.height() / img.width()),
+        (None, Some(h)) => (h * img.width() / img.height(), h),
 
-      _ =>  unreachable!(),
+        _ => unreachable!(),
     };
 
     println!("w = {:?}, h = {:?}", new_width, new_height);
 
     //
     if is_animated_gif(path)? {
-      let mp4_path = thumbnail_path.with_extension("mp4");
+        let mp4_path = thumbnail_path.with_extension("mp4");
 
-      Command::new("ffmpeg")
-          .args([
-              "-i",
-              path.to_str().unwrap(),
-              "-movflags",
-              "faststart",
-              "-pix_fmt",
-              "yuv420p",
-              "-vf",
-              &format!("scale={}:{}", new_width, new_height),
-              mp4_path.to_str().unwrap(),
-          ])
-          .output()
-          .expect("failed to create thumbnail");
+        Command::new("ffmpeg")
+            .args([
+                "-i",
+                path.to_str().unwrap(),
+                "-movflags",
+                "faststart",
+                "-pix_fmt",
+                "yuv420p",
+                "-vf",
+                &format!("scale={}:{}", new_width, new_height),
+                mp4_path.to_str().unwrap(),
+            ])
+            .output()
+            .expect("failed to create thumbnail");
 
-      Ok(mp4_path)
+        Ok(mp4_path)
     } else {
-      println!("thumbnail_path = {:?}", thumbnail_path);
-      img.resize(new_width, new_height, FilterType::Lanczos3)
-          .save(&thumbnail_path)
-          .unwrap();
+        println!("thumbnail_path = {:?}", thumbnail_path);
+        img.resize(new_width, new_height, FilterType::Lanczos3)
+            .save(&thumbnail_path)
+            .unwrap();
 
-      Ok(thumbnail_path)
+        Ok(thumbnail_path)
     }
 }
 
