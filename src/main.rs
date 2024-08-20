@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use std::io;
 use std::path::PathBuf;
 use std::process::Command;
@@ -91,4 +93,60 @@ fn main() {
     println!("args = {:?}", cli);
 
     create_thumbnail(&cli.path, &cli.out_dir, cli.height, cli.width).unwrap();
+}
+
+#[cfg(test)]
+mod test_cli {
+    use std::str;
+
+    use assert_cmd::assert::OutputAssertExt;
+    use assert_cmd::Command;
+    use regex::Regex;
+
+    #[test]
+    fn it_prints_the_version() {
+        let output = get_success(&["--version"]);
+
+        let re = Regex::new(r"^create_thumbnail [0-9]+\.[0-9]+\.[0-9]+\n$").unwrap();
+
+        assert!(re.is_match(&output.stdout));
+
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.stderr, "");
+    }
+
+    #[test]
+    fn it_prints_the_help() {
+        let output = get_success(&["--help"]);
+
+        let re = Regex::new(r"create_thumbnail --out-dir").unwrap();
+
+        assert!(re.is_match(&output.stdout));
+
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.stderr, "");
+    }
+
+    struct DcOutput {
+        exit_code: i32,
+        stdout: String,
+        stderr: String,
+    }
+
+    fn get_success(args: &[&str]) -> DcOutput {
+        let mut cmd = Command::cargo_bin("create_thumbnail").unwrap();
+        let output = cmd
+            .args(args)
+            .unwrap()
+            .assert()
+            .success()
+            .get_output()
+            .to_owned();
+
+        DcOutput {
+            exit_code: output.status.code().unwrap(),
+            stdout: str::from_utf8(&output.stdout).unwrap().to_owned(),
+            stderr: str::from_utf8(&output.stderr).unwrap().to_owned(),
+        }
+    }
 }
