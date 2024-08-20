@@ -6,4 +6,3 @@ focusing on a small piece of code makes it better
     -> creates thumbnail directory
     -> /dev/null
     -> thumbnail dir is file?
-    -> try to overwrite original file?

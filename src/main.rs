@@ -130,6 +130,15 @@ mod test_cli {
     }
 
     #[test]
+    fn it_fails_if_you_try_to_overwrite_the_original_file() {
+        let output = get_failure(&["src/images/noise.jpg", "--width=50", "--out-dir=src/images"]);
+
+        assert_eq!(output.exit_code, 1);
+        assert_eq!(output.stderr, "Cannot write thumbnail to the same directory as the original image\n");
+        assert_eq!(output.stdout, "");
+    }
+
+    #[test]
     fn it_prints_the_version() {
         let output = get_success(&["--version"]);
 

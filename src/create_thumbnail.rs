@@ -19,7 +19,13 @@ pub fn create_thumbnail(
     let thumbnail_path = out_dir.join(path.file_name().unwrap());
     create_parent_directory(&thumbnail_path)?;
 
-    // TODO: Does this check do what I think?
+    // Make sure we don't overwrite the original image with a thumbnail
+    if *path == thumbnail_path {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Cannot write thumbnail to the same directory as the original image",
+        ));
+    }
     assert!(*path != thumbnail_path);
 
     let (new_width, new_height) = get_thumbnail_dimensions(&path, target)
