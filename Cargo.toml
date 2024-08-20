@@ -8,3 +8,4 @@ assert_cmd = "2.0.14"
 clap = { version = "4", features = ["derive"] }
 image = "0.25.1"
 regex = "1.10.5"
+tempdir = "0.3.7"

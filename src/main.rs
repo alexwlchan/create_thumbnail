@@ -2,14 +2,16 @@
 
 use std::io;
 use std::path::PathBuf;
-use std::process::Command;
 
 use clap::{ArgGroup, Parser};
 use image::imageops::FilterType;
 
+mod create_parent_directory;
+mod create_thumbnail;
 mod get_thumbnail_dimensions;
 mod is_animated_gif;
 
+use crate::create_parent_directory::create_parent_directory;
 use crate::get_thumbnail_dimensions::get_thumbnail_dimensions;
 use crate::is_animated_gif::is_animated_gif;
 
@@ -22,6 +24,7 @@ pub fn create_thumbnail(
     width: Option<u32>,
 ) -> io::Result<PathBuf> {
     let thumbnail_path = out_dir.join(path.file_name().unwrap());
+    create_parent_directory(&thumbnail_path)?;
 
     // TODO: Does this check do what I think?
     assert!(*path != thumbnail_path);
@@ -33,24 +36,7 @@ pub fn create_thumbnail(
 
     //
     if is_animated_gif(path)? {
-        let mp4_path = thumbnail_path.with_extension("mp4");
-
-        Command::new("ffmpeg")
-            .args([
-                "-i",
-                path.to_str().unwrap(),
-                "-movflags",
-                "faststart",
-                "-pix_fmt",
-                "yuv420p",
-                "-vf",
-                &format!("scale={}:{}", new_width, new_height),
-                mp4_path.to_str().unwrap(),
-            ])
-            .output()
-            .expect("failed to create thumbnail");
-
-        Ok(mp4_path)
+        create_thumbnail::create_animated_gif_thumbnail(path, out_dir, new_width, new_height)
     } else {
         println!("thumbnail_path = {:?}", thumbnail_path);
         let img = image::open(path).unwrap();
@@ -60,6 +46,28 @@ pub fn create_thumbnail(
             .unwrap();
 
         Ok(thumbnail_path)
+    }
+}
+
+#[cfg(test)]
+mod test_create_thumbnail {
+    use std::path::PathBuf;
+
+    use super::create_thumbnail;
+    use crate::test_utils::test_dir;
+
+    #[test]
+    fn creates_an_animated_gif_thumbnail() {
+        let gif_path = PathBuf::from("src/tests/animated_squares.gif");
+        let out_dir = test_dir();
+        let target_width = Some(16);
+        let target_height = None;
+
+        let thumbnail_path =
+            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
+
+        assert_eq!(thumbnail_path, out_dir.join("animated_squares.mp4"));
+        assert!(thumbnail_path.exists());
     }
 }
 
@@ -97,11 +105,9 @@ fn main() {
 
 #[cfg(test)]
 mod test_cli {
-    use std::str;
-
-    use assert_cmd::assert::OutputAssertExt;
-    use assert_cmd::Command;
     use regex::Regex;
+
+    use crate::test_utils::{get_failure, get_success};
 
     #[test]
     fn it_errors_if_you_pass_width_and_height() {
@@ -155,14 +161,32 @@ mod test_cli {
         assert_eq!(output.exit_code, 0);
         assert_eq!(output.stderr, "");
     }
+}
 
-    struct DcOutput {
-        exit_code: i32,
-        stdout: String,
-        stderr: String,
+#[cfg(test)]
+pub mod test_utils {
+    use std::path::PathBuf;
+    use std::str;
+
+    use assert_cmd::assert::OutputAssertExt;
+    use assert_cmd::Command;
+
+    /// Return a path to a temporary directory to use for testing.
+    ///
+    /// This function does *not* create the directory, just the path.
+    pub fn test_dir() -> PathBuf {
+        let tmp_dir = tempdir::TempDir::new("testing").unwrap();
+
+        tmp_dir.path().to_owned()
     }
 
-    fn get_success(args: &[&str]) -> DcOutput {
+    pub struct DcOutput {
+        pub exit_code: i32,
+        pub stdout: String,
+        pub stderr: String,
+    }
+
+    pub fn get_success(args: &[&str]) -> DcOutput {
         let mut cmd = Command::cargo_bin("create_thumbnail").unwrap();
         let output = cmd
             .args(args)
@@ -179,7 +203,7 @@ mod test_cli {
         }
     }
 
-    fn get_failure(args: &[&str]) -> DcOutput {
+    pub fn get_failure(args: &[&str]) -> DcOutput {
         let mut cmd = Command::cargo_bin("create_thumbnail").unwrap();
         let output = cmd.args(args).unwrap_err().as_output().unwrap().to_owned();
 
