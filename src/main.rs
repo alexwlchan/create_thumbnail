@@ -16,17 +16,23 @@ use crate::is_animated_gif::is_animated_gif;
 
 /// Create a thumbnail for the image, and return the relative path of
 /// the thumbnail within the collection folder.
+///
+/// TODO: Having two Option<u32> arguments is confusing because they could
+/// easily be swapped.  Replace this with some sort of struct!
 pub fn create_thumbnail(
     path: &PathBuf,
     out_dir: &PathBuf,
-    height: Option<u32>,
     width: Option<u32>,
+    height: Option<u32>,
 ) -> io::Result<PathBuf> {
     let thumbnail_path = out_dir.join(path.file_name().unwrap());
     create_parent_directory(&thumbnail_path)?;
 
     // TODO: Does this check do what I think?
     assert!(*path != thumbnail_path);
+
+    println!("w = {:?}", width);
+    println!("h = {:?}", height);
 
     let (new_width, new_height) = get_thumbnail_dimensions(&path, width, height)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
@@ -46,7 +52,7 @@ mod test_create_thumbnail {
     use std::path::PathBuf;
 
     use super::create_thumbnail;
-    use crate::test_utils::test_dir;
+    use crate::test_utils::{get_dimensions, test_dir};
 
     #[test]
     fn creates_an_animated_gif_thumbnail() {
@@ -74,6 +80,7 @@ mod test_create_thumbnail {
 
         assert_eq!(thumbnail_path, out_dir.join("yellow.gif"));
         assert!(thumbnail_path.exists());
+        assert_eq!(get_dimensions(&thumbnail_path), (16, 8));
     }
 
     #[test]
@@ -88,6 +95,7 @@ mod test_create_thumbnail {
 
         assert_eq!(thumbnail_path, out_dir.join("red.png"));
         assert!(thumbnail_path.exists());
+        assert_eq!(get_dimensions(&thumbnail_path), (16, 32));
     }
 
     #[test]
@@ -102,6 +110,7 @@ mod test_create_thumbnail {
 
         assert_eq!(thumbnail_path, out_dir.join("noise.jpg"));
         assert!(thumbnail_path.exists());
+        assert_eq!(get_dimensions(&thumbnail_path), (16, 32));
     }
 
     #[test]
@@ -116,6 +125,7 @@ mod test_create_thumbnail {
 
         assert_eq!(thumbnail_path, out_dir.join("green.tiff"));
         assert!(thumbnail_path.exists());
+        assert_eq!(get_dimensions(&thumbnail_path), (16, 16));
     }
 
     #[test]
@@ -130,6 +140,7 @@ mod test_create_thumbnail {
 
         assert_eq!(thumbnail_path, out_dir.join("purple.webp"));
         assert!(thumbnail_path.exists());
+        assert_eq!(get_dimensions(&thumbnail_path), (16, 16));
     }
 }
 
@@ -162,7 +173,7 @@ fn main() {
 
     println!("args = {:?}", cli);
 
-    create_thumbnail(&cli.path, &cli.out_dir, cli.height, cli.width).unwrap();
+    create_thumbnail(&cli.path, &cli.out_dir, cli.width, cli.height).unwrap();
 }
 
 #[cfg(test)]
@@ -232,6 +243,7 @@ pub mod test_utils {
 
     use assert_cmd::assert::OutputAssertExt;
     use assert_cmd::Command;
+    use image::GenericImageView;
 
     /// Return a path to a temporary directory to use for testing.
     ///
@@ -240,6 +252,13 @@ pub mod test_utils {
         let tmp_dir = tempdir::TempDir::new("testing").unwrap();
 
         tmp_dir.path().to_owned()
+    }
+
+    /// Return the dimensions for an image.
+    pub fn get_dimensions(path: &PathBuf) -> (u32, u32) {
+        let img = image::open(path).unwrap();
+
+        img.dimensions()
     }
 
     pub struct DcOutput {
