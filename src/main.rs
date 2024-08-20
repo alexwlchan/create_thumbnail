@@ -1,6 +1,5 @@
 #![deny(warnings)]
 
-use std::io;
 use std::path::PathBuf;
 
 use clap::{ArgGroup, Parser};
@@ -10,118 +9,8 @@ mod create_thumbnail;
 mod get_thumbnail_dimensions;
 mod is_animated_gif;
 
-use crate::create_parent_directory::create_parent_directory;
-use crate::get_thumbnail_dimensions::{get_thumbnail_dimensions, TargetDimension};
-use crate::is_animated_gif::is_animated_gif;
-
-/// Create a thumbnail for the image, and return the relative path of
-/// the thumbnail within the collection folder.
-pub fn create_thumbnail(
-    path: &PathBuf,
-    out_dir: &PathBuf,
-    target: TargetDimension,
-) -> io::Result<PathBuf> {
-    let thumbnail_path = out_dir.join(path.file_name().unwrap());
-    create_parent_directory(&thumbnail_path)?;
-
-    // TODO: Does this check do what I think?
-    assert!(*path != thumbnail_path);
-
-    let (new_width, new_height) = get_thumbnail_dimensions(&path, target)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
-
-    if is_animated_gif(path)? {
-        create_thumbnail::create_animated_gif_thumbnail(path, out_dir, new_width, new_height)
-    } else {
-        create_thumbnail::create_static_thumbnail(path, out_dir, new_width, new_height)
-    }
-}
-
-#[cfg(test)]
-mod test_create_thumbnail {
-    use std::path::PathBuf;
-
-    use super::create_thumbnail;
-    use crate::get_thumbnail_dimensions::TargetDimension;
-    use crate::test_utils::{get_dimensions, test_dir};
-
-    #[test]
-    fn creates_an_animated_gif_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/animated_squares.gif");
-        let out_dir = test_dir();
-        let target = TargetDimension::MaxWidth(16);
-
-        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
-
-        assert_eq!(thumbnail_path, out_dir.join("animated_squares.mp4"));
-        assert!(thumbnail_path.exists());
-    }
-
-    #[test]
-    fn creates_a_static_gif_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/yellow.gif");
-        let out_dir = test_dir();
-        let target = TargetDimension::MaxWidth(16);
-
-        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
-
-        assert_eq!(thumbnail_path, out_dir.join("yellow.gif"));
-        assert!(thumbnail_path.exists());
-        assert_eq!(get_dimensions(&thumbnail_path), (16, 8));
-    }
-
-    #[test]
-    fn creates_a_png_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/red.png");
-        let out_dir = test_dir();
-        let target = TargetDimension::MaxWidth(16);
-
-        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
-
-        assert_eq!(thumbnail_path, out_dir.join("red.png"));
-        assert!(thumbnail_path.exists());
-        assert_eq!(get_dimensions(&thumbnail_path), (16, 32));
-    }
-
-    #[test]
-    fn creates_a_jpeg_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/noise.jpg");
-        let out_dir = test_dir();
-        let target = TargetDimension::MaxWidth(16);
-
-        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
-
-        assert_eq!(thumbnail_path, out_dir.join("noise.jpg"));
-        assert!(thumbnail_path.exists());
-        assert_eq!(get_dimensions(&thumbnail_path), (16, 32));
-    }
-
-    #[test]
-    fn creates_a_tif_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/green.tiff");
-        let out_dir = test_dir();
-        let target = TargetDimension::MaxHeight(16);
-
-        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
-
-        assert_eq!(thumbnail_path, out_dir.join("green.tiff"));
-        assert!(thumbnail_path.exists());
-        assert_eq!(get_dimensions(&thumbnail_path), (16, 16));
-    }
-
-    #[test]
-    fn creates_a_webp_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/purple.webp");
-        let out_dir = test_dir();
-        let target = TargetDimension::MaxWidth(16);
-
-        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
-
-        assert_eq!(thumbnail_path, out_dir.join("purple.webp"));
-        assert!(thumbnail_path.exists());
-        assert_eq!(get_dimensions(&thumbnail_path), (16, 16));
-    }
-}
+use crate::create_thumbnail::create_thumbnail;
+use crate::get_thumbnail_dimensions::TargetDimension;
 
 #[derive(Debug, Parser)]
 #[clap(version, about)]
