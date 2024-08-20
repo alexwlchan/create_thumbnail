@@ -45,8 +45,13 @@ fn main() {
         _ => unreachable!(),
     };
 
-    let thumbnail_path = create_thumbnail(&cli.path, &cli.out_dir, target).unwrap();
-    print!("{}", thumbnail_path.display());
+    match create_thumbnail(&cli.path, &cli.out_dir, target) {
+        Ok(thumbnail_path) => print!("{}", thumbnail_path.display()),
+        Err(e) => {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+    };
 }
 
 #[cfg(test)]
@@ -103,6 +108,15 @@ mod test_cli {
         assert!(re.is_match(&output.stderr));
 
         assert_eq!(output.exit_code, 2);
+        assert_eq!(output.stdout, "");
+    }
+
+    #[test]
+    fn it_errors_if_you_pass_a_non_image() {
+        let output = get_failure(&["Cargo.toml", "--width=50", "--out-dir=/tmp"]);
+
+        assert_eq!(output.exit_code, 1);
+        assert_eq!(output.stderr, "The image format could not be determined\n");
         assert_eq!(output.stdout, "");
     }
 
