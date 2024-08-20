@@ -54,11 +54,11 @@ mod test_create_thumbnail {
 
     #[test]
     fn creates_a_static_gif_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/yellow.gif");
+        let img_path = PathBuf::from("src/tests/yellow.gif");
         let out_dir = test_dir();
         let target = TargetDimension::MaxWidth(16);
 
-        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
+        let thumbnail_path = create_thumbnail(&img_path, &out_dir, target).unwrap();
 
         assert_eq!(thumbnail_path, out_dir.join("yellow.gif"));
         assert!(thumbnail_path.exists());
@@ -67,11 +67,11 @@ mod test_create_thumbnail {
 
     #[test]
     fn creates_a_png_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/red.png");
+        let img_path = PathBuf::from("src/tests/red.png");
         let out_dir = test_dir();
         let target = TargetDimension::MaxWidth(16);
 
-        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
+        let thumbnail_path = create_thumbnail(&img_path, &out_dir, target).unwrap();
 
         assert_eq!(thumbnail_path, out_dir.join("red.png"));
         assert!(thumbnail_path.exists());
@@ -80,11 +80,11 @@ mod test_create_thumbnail {
 
     #[test]
     fn creates_a_jpeg_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/noise.jpg");
+        let img_path = PathBuf::from("src/tests/noise.jpg");
         let out_dir = test_dir();
         let target = TargetDimension::MaxWidth(16);
 
-        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
+        let thumbnail_path = create_thumbnail(&img_path, &out_dir, target).unwrap();
 
         assert_eq!(thumbnail_path, out_dir.join("noise.jpg"));
         assert!(thumbnail_path.exists());
@@ -93,11 +93,11 @@ mod test_create_thumbnail {
 
     #[test]
     fn creates_a_tif_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/green.tiff");
+        let img_path = PathBuf::from("src/tests/green.tiff");
         let out_dir = test_dir();
         let target = TargetDimension::MaxHeight(16);
 
-        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
+        let thumbnail_path = create_thumbnail(&img_path, &out_dir, target).unwrap();
 
         assert_eq!(thumbnail_path, out_dir.join("green.tiff"));
         assert!(thumbnail_path.exists());
@@ -106,11 +106,11 @@ mod test_create_thumbnail {
 
     #[test]
     fn creates_a_webp_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/purple.webp");
+        let img_path = PathBuf::from("src/tests/purple.webp");
         let out_dir = test_dir();
         let target = TargetDimension::MaxWidth(16);
 
-        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
+        let thumbnail_path = create_thumbnail(&img_path, &out_dir, target).unwrap();
 
         assert_eq!(thumbnail_path, out_dir.join("purple.webp"));
         assert!(thumbnail_path.exists());
