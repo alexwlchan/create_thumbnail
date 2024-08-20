@@ -7,6 +7,3 @@ focusing on a small piece of code makes it better
     -> /dev/null
     -> thumbnail dir is file?
     -> try to overwrite original file?
-    -> non-image format
-    -> unrecognised image format
-    -> non-existent file
