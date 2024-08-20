@@ -116,6 +116,19 @@ mod test_create_thumbnail {
         assert!(thumbnail_path.exists());
         assert_eq!(get_dimensions(&thumbnail_path), (16, 16));
     }
+
+    #[test]
+    fn it_creates_an_equal_size_thumbnail_if_dimension_larger_than_original() {
+        let img_path = PathBuf::from("src/tests/noise.jpg");
+        let out_dir = test_dir();
+        let target = TargetDimension::MaxWidth(500);
+
+        let thumbnail_path = create_thumbnail(&img_path, &out_dir, target).unwrap();
+
+        assert_eq!(thumbnail_path, out_dir.join("noise.jpg"));
+        assert!(thumbnail_path.exists());
+        assert_eq!(get_dimensions(&thumbnail_path), (128, 256));
+    }
 }
 
 /// Create a thumbnail for an animated GIF.
