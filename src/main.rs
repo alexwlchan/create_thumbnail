@@ -39,22 +39,43 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
 
-    println!("args = {:?}", cli);
-
     let target = match (cli.width, cli.height) {
         (Some(w), None) => TargetDimension::MaxWidth(w),
         (None, Some(h)) => TargetDimension::MaxHeight(h),
         _ => unreachable!(),
     };
 
-    create_thumbnail(&cli.path, &cli.out_dir, target).unwrap();
+    let thumbnail_path = create_thumbnail(&cli.path, &cli.out_dir, target).unwrap();
+    print!("{}", thumbnail_path.display());
 }
 
 #[cfg(test)]
 mod test_cli {
+    use std::path::PathBuf;
+
     use regex::Regex;
 
-    use crate::test_utils::{get_failure, get_success};
+    use crate::test_utils::{get_dimensions, get_failure, get_success};
+
+    #[test]
+    fn it_creates_a_thumbnail_with_max_width() {
+        let output = get_success(&["src/tests/red.png", "--width=50", "--out-dir=/tmp"]);
+
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.stdout, "/tmp/red.png");
+        assert_eq!(output.stderr, "");
+        assert_eq!(get_dimensions(&PathBuf::from("/tmp/red.png")), (50, 100));
+    }
+
+    #[test]
+    fn it_creates_a_thumbnail_with_max_height() {
+        let output = get_success(&["src/tests/noise.jpg", "--height=128", "--out-dir=/tmp"]);
+
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.stdout, "/tmp/noise.jpg");
+        assert_eq!(output.stderr, "");
+        assert_eq!(get_dimensions(&PathBuf::from("/tmp/noise.jpg")), (64, 128));
+    }
 
     #[test]
     fn it_errors_if_you_pass_width_and_height() {
