@@ -104,6 +104,35 @@ mod test_cli {
     use regex::Regex;
 
     #[test]
+    fn it_errors_if_you_pass_width_and_height() {
+        let output = get_failure(&[
+            "src/tests/red.png",
+            "--width=100",
+            "--height=100",
+            "--out-dir=/tmp",
+        ]);
+
+        let re =
+            Regex::new(r"the argument '--width <WIDTH>' cannot be used with '--height <HEIGHT>'")
+                .unwrap();
+        assert!(re.is_match(&output.stderr));
+
+        assert_eq!(output.exit_code, 2);
+        assert_eq!(output.stdout, "");
+    }
+
+    #[test]
+    fn it_errors_if_you_pass_neither_width_nor_height() {
+        let output = get_failure(&["src/tests/red.png", "--out-dir=/tmp"]);
+
+        let re = Regex::new(r"the following required arguments were not provided:").unwrap();
+        assert!(re.is_match(&output.stderr));
+
+        assert_eq!(output.exit_code, 2);
+        assert_eq!(output.stdout, "");
+    }
+
+    #[test]
     fn it_prints_the_version() {
         let output = get_success(&["--version"]);
 
@@ -142,6 +171,17 @@ mod test_cli {
             .success()
             .get_output()
             .to_owned();
+
+        DcOutput {
+            exit_code: output.status.code().unwrap(),
+            stdout: str::from_utf8(&output.stdout).unwrap().to_owned(),
+            stderr: str::from_utf8(&output.stderr).unwrap().to_owned(),
+        }
+    }
+
+    fn get_failure(args: &[&str]) -> DcOutput {
+        let mut cmd = Command::cargo_bin("create_thumbnail").unwrap();
+        let output = cmd.args(args).unwrap_err().as_output().unwrap().to_owned();
 
         DcOutput {
             exit_code: output.status.code().unwrap(),
