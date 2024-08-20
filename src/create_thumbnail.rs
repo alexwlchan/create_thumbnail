@@ -59,6 +59,18 @@ mod test_create_thumbnail {
     }
 
     #[test]
+    fn creates_an_animated_gif_thumbnail_with_odd_width() {
+        let gif_path = PathBuf::from("src/tests/animated_squares.gif");
+        let out_dir = test_dir();
+        let target = TargetDimension::MaxWidth(15);
+
+        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
+
+        assert_eq!(thumbnail_path, out_dir.join("animated_squares.mp4"));
+        assert!(thumbnail_path.exists());
+    }
+
+    #[test]
     fn creates_a_static_gif_thumbnail() {
         let img_path = PathBuf::from("src/tests/yellow.gif");
         let out_dir = test_dir();
@@ -137,6 +149,15 @@ mod test_create_thumbnail {
     }
 }
 
+/// Return this value if it's even, or the closest value which is even.
+fn ensure_even(x: u32) -> u32 {
+    if x % 2 == 0 {
+        x
+    } else {
+        x + 1
+    }
+}
+
 /// Create a thumbnail for an animated GIF.
 ///
 /// This will use `ffmpeg` to create an MP4 file of the desired dimensions
@@ -157,7 +178,15 @@ pub fn create_animated_gif_thumbnail(
     let file_name = gif_path.file_name().unwrap();
     let thumbnail_path = out_dir.join(file_name).with_extension("mp4");
 
-    let dimension_str = format!("scale={}:{}", width, height);
+    // There's a subtlety here with ffmpeg I don't understand fully -- if
+    // the width/height aren't even, it doesn't create the MP4, instead
+    // failing with the error:
+    //
+    //     width not divisible by 2
+    //
+    // I don't usually need these files to be pixel-perfect width, so
+    // fudging by a single pixel or two is fine.
+    let dimension_str = format!("scale={}:{}", ensure_even(width), ensure_even(height));
 
     let output = Command::new("ffmpeg")
         .args([
