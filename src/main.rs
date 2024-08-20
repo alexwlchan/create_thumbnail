@@ -112,6 +112,15 @@ mod test_cli {
     }
 
     #[test]
+    fn it_fails_if_you_pass_a_non_existent_file() {
+        let output = get_failure(&["doesnotexist.txt", "--width=50", "--out-dir=/tmp"]);
+
+        assert_eq!(output.exit_code, 1);
+        assert_eq!(output.stderr, "No such file or directory (os error 2)\n");
+        assert_eq!(output.stdout, "");
+    }
+
+    #[test]
     fn it_fails_if_you_pass_a_non_image() {
         let output = get_failure(&["Cargo.toml", "--width=50", "--out-dir=/tmp"]);
 
