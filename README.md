@@ -10,5 +10,3 @@ focusing on a small piece of code makes it better
     -> non-image format
     -> unrecognised image format
     -> non-existent file
-
-* print name of thumbnail
