@@ -1,14 +1,46 @@
-create-thumbnail PATH [--width=WIDTH | --height=HEIGHT] --out-dir=OUT_DIR
+# create_thumbnail
 
-focusing on a small piece of code makes it better
+This is a simple command-line tool for creating image thumbnails.
 
-"DRY" / rule of three / https://en.wikipedia.org/wiki/Rule_of_three_(computer_programming)
-good at doing inside a single project
-but not across project
-this is thumbnailing code that I've written across at least half a dozen projects
-but it's always an adjunct to the main rpoject
-never made it a project on its own so it's always a slightly rushed, half-baked bit of code
-pul it out into its own project!
+You tell it your original image, the directory where you're storing thumbnails, and the max width/height of the thumbnail you want to create.
+It prints the path to the newly-created thumbnail.
 
-thumbnails = don't feel need in local dev, cos everything is whizzy fast
-much better here
+```console
+$ create_thumbnail cat.jpg --out-dir=thumbnails --width=150
+./thumbnails/cat.jpg
+
+$ create_thumbnail dog.png --out-dir=thumbnails --height=200
+./thumbnails/dog.png
+
+$ create_thumbnail --help
+Usage: create_thumbnail --out-dir <OUT_DIR> <--height <HEIGHT>|--width <WIDTH>> <PATH>
+```
+
+It supports JPEG, PNG, TIFF, WEBP, and both static and animated GIFs.
+Thumbnails match the format of the original image, except for animated GIFs, which become MP4 movies.
+
+
+
+## Installation
+
+You can download compiled binaries from the [GitHub releases](https://github.com/alexwlchan/create_thumbnail/releases).
+
+Alternatively, you can install from source.
+You need Rust installed; I recommend using [Rustup].
+Then clone this repository and compile the code:
+
+```console
+$ git clone "https://github.com/alexwlchan/create_thumbnail.git"
+$ cd dominant_colours
+$ cargo install --path .
+```
+
+For animated GIF support, you additionally need to install `ffmpeg`.
+
+[Rustup]: https://rustup.rs/
+
+
+
+## License
+
+MIT.
