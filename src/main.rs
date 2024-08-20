@@ -113,6 +113,18 @@ mod test_cli {
         assert_eq!(output.stderr, "");
     }
 
+    #[test]
+    fn it_prints_the_help() {
+        let output = get_success(&["--help"]);
+
+        let re = Regex::new(r"create_thumbnail --out-dir").unwrap();
+
+        assert!(re.is_match(&output.stdout));
+
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.stderr, "");
+    }
+
     struct DcOutput {
         exit_code: i32,
         stdout: String,
