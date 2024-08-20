@@ -1,6 +1,5 @@
 #![deny(warnings)]
 
-use std::io;
 use std::path::PathBuf;
 
 use clap::{ArgGroup, Parser};
@@ -10,139 +9,8 @@ mod create_thumbnail;
 mod get_thumbnail_dimensions;
 mod is_animated_gif;
 
-use crate::create_parent_directory::create_parent_directory;
-use crate::get_thumbnail_dimensions::get_thumbnail_dimensions;
-use crate::is_animated_gif::is_animated_gif;
-
-/// Create a thumbnail for the image, and return the relative path of
-/// the thumbnail within the collection folder.
-///
-/// TODO: Having two Option<u32> arguments is confusing because they could
-/// easily be swapped.  Replace this with some sort of struct!
-pub fn create_thumbnail(
-    path: &PathBuf,
-    out_dir: &PathBuf,
-    width: Option<u32>,
-    height: Option<u32>,
-) -> io::Result<PathBuf> {
-    let thumbnail_path = out_dir.join(path.file_name().unwrap());
-    create_parent_directory(&thumbnail_path)?;
-
-    // TODO: Does this check do what I think?
-    assert!(*path != thumbnail_path);
-
-    println!("w = {:?}", width);
-    println!("h = {:?}", height);
-
-    let (new_width, new_height) = get_thumbnail_dimensions(&path, width, height)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
-
-    println!("w = {:?}, h = {:?}", new_width, new_height);
-
-    //
-    if is_animated_gif(path)? {
-        create_thumbnail::create_animated_gif_thumbnail(path, out_dir, new_width, new_height)
-    } else {
-        create_thumbnail::create_static_thumbnail(path, out_dir, new_width, new_height)
-    }
-}
-
-#[cfg(test)]
-mod test_create_thumbnail {
-    use std::path::PathBuf;
-
-    use super::create_thumbnail;
-    use crate::test_utils::{get_dimensions, test_dir};
-
-    #[test]
-    fn creates_an_animated_gif_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/animated_squares.gif");
-        let out_dir = test_dir();
-        let target_width = Some(16);
-        let target_height = None;
-
-        let thumbnail_path =
-            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
-
-        assert_eq!(thumbnail_path, out_dir.join("animated_squares.mp4"));
-        assert!(thumbnail_path.exists());
-    }
-
-    #[test]
-    fn creates_a_static_gif_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/yellow.gif");
-        let out_dir = test_dir();
-        let target_width = Some(16);
-        let target_height = None;
-
-        let thumbnail_path =
-            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
-
-        assert_eq!(thumbnail_path, out_dir.join("yellow.gif"));
-        assert!(thumbnail_path.exists());
-        assert_eq!(get_dimensions(&thumbnail_path), (16, 8));
-    }
-
-    #[test]
-    fn creates_a_png_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/red.png");
-        let out_dir = test_dir();
-        let target_width = Some(16);
-        let target_height = None;
-
-        let thumbnail_path =
-            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
-
-        assert_eq!(thumbnail_path, out_dir.join("red.png"));
-        assert!(thumbnail_path.exists());
-        assert_eq!(get_dimensions(&thumbnail_path), (16, 32));
-    }
-
-    #[test]
-    fn creates_a_jpeg_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/noise.jpg");
-        let out_dir = test_dir();
-        let target_width = Some(16);
-        let target_height = None;
-
-        let thumbnail_path =
-            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
-
-        assert_eq!(thumbnail_path, out_dir.join("noise.jpg"));
-        assert!(thumbnail_path.exists());
-        assert_eq!(get_dimensions(&thumbnail_path), (16, 32));
-    }
-
-    #[test]
-    fn creates_a_tif_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/green.tiff");
-        let out_dir = test_dir();
-        let target_width = Some(16);
-        let target_height = None;
-
-        let thumbnail_path =
-            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
-
-        assert_eq!(thumbnail_path, out_dir.join("green.tiff"));
-        assert!(thumbnail_path.exists());
-        assert_eq!(get_dimensions(&thumbnail_path), (16, 16));
-    }
-
-    #[test]
-    fn creates_a_webp_thumbnail() {
-        let gif_path = PathBuf::from("src/tests/purple.webp");
-        let out_dir = test_dir();
-        let target_width = Some(16);
-        let target_height = None;
-
-        let thumbnail_path =
-            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
-
-        assert_eq!(thumbnail_path, out_dir.join("purple.webp"));
-        assert!(thumbnail_path.exists());
-        assert_eq!(get_dimensions(&thumbnail_path), (16, 16));
-    }
-}
+use crate::create_thumbnail::create_thumbnail;
+use crate::get_thumbnail_dimensions::TargetDimension;
 
 #[derive(Debug, Parser)]
 #[clap(version, about)]
@@ -171,19 +39,51 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
 
-    println!("args = {:?}", cli);
+    let target = match (cli.width, cli.height) {
+        (Some(w), None) => TargetDimension::MaxWidth(w),
+        (None, Some(h)) => TargetDimension::MaxHeight(h),
+        _ => unreachable!(),
+    };
 
-    create_thumbnail(&cli.path, &cli.out_dir, cli.width, cli.height).unwrap();
+    match create_thumbnail(&cli.path, &cli.out_dir, target) {
+        Ok(thumbnail_path) => print!("{}", thumbnail_path.display()),
+        Err(e) => {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+    };
 }
 
 #[cfg(test)]
 mod test_cli {
+    use std::path::PathBuf;
+
     use regex::Regex;
 
-    use crate::test_utils::{get_failure, get_success};
+    use crate::test_utils::{get_dimensions, get_failure, get_success};
 
     #[test]
-    fn it_errors_if_you_pass_width_and_height() {
+    fn it_creates_a_thumbnail_with_max_width() {
+        let output = get_success(&["src/tests/red.png", "--width=50", "--out-dir=/tmp"]);
+
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.stdout, "/tmp/red.png");
+        assert_eq!(output.stderr, "");
+        assert_eq!(get_dimensions(&PathBuf::from("/tmp/red.png")), (50, 100));
+    }
+
+    #[test]
+    fn it_creates_a_thumbnail_with_max_height() {
+        let output = get_success(&["src/tests/noise.jpg", "--height=128", "--out-dir=/tmp"]);
+
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.stdout, "/tmp/noise.jpg");
+        assert_eq!(output.stderr, "");
+        assert_eq!(get_dimensions(&PathBuf::from("/tmp/noise.jpg")), (64, 128));
+    }
+
+    #[test]
+    fn it_fails_if_you_pass_width_and_height() {
         let output = get_failure(&[
             "src/tests/red.png",
             "--width=100",
@@ -201,13 +101,56 @@ mod test_cli {
     }
 
     #[test]
-    fn it_errors_if_you_pass_neither_width_nor_height() {
+    fn it_fails_if_you_pass_neither_width_nor_height() {
         let output = get_failure(&["src/tests/red.png", "--out-dir=/tmp"]);
 
         let re = Regex::new(r"the following required arguments were not provided:").unwrap();
         assert!(re.is_match(&output.stderr));
 
         assert_eq!(output.exit_code, 2);
+        assert_eq!(output.stdout, "");
+    }
+
+    #[test]
+    fn it_fails_if_you_pass_a_non_existent_file() {
+        let output = get_failure(&["doesnotexist.txt", "--width=50", "--out-dir=/tmp"]);
+
+        assert_eq!(output.exit_code, 1);
+        assert_eq!(output.stderr, "No such file or directory (os error 2)\n");
+        assert_eq!(output.stdout, "");
+    }
+
+    #[test]
+    fn it_fails_if_you_pass_a_non_image() {
+        let output = get_failure(&["Cargo.toml", "--width=50", "--out-dir=/tmp"]);
+
+        assert_eq!(output.exit_code, 1);
+        assert_eq!(output.stderr, "The image format could not be determined\n");
+        assert_eq!(output.stdout, "");
+    }
+
+    // TODO: Improve this error message.
+    //
+    // It's good to know the tool won't completely break when this happens, but ideally
+    // we'd return a more meaningful error message in this case.
+    #[test]
+    fn it_fails_if_out_dir_is_a_file() {
+        let output = get_failure(&["src/images/noise.jpg", "--width=50", "--out-dir=README.md"]);
+
+        assert_eq!(output.exit_code, 1);
+        assert_eq!(output.stderr, "File exists (os error 17)\n");
+        assert_eq!(output.stdout, "");
+    }
+
+    #[test]
+    fn it_fails_if_you_try_to_overwrite_the_original_file() {
+        let output = get_failure(&["src/images/noise.jpg", "--width=50", "--out-dir=src/images"]);
+
+        assert_eq!(output.exit_code, 1);
+        assert_eq!(
+            output.stderr,
+            "Cannot write thumbnail to the same directory as the original image\n"
+        );
         assert_eq!(output.stdout, "");
     }
 
