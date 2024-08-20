@@ -83,7 +83,7 @@ mod test_cli {
     }
 
     #[test]
-    fn it_errors_if_you_pass_width_and_height() {
+    fn it_fails_if_you_pass_width_and_height() {
         let output = get_failure(&[
             "src/tests/red.png",
             "--width=100",
@@ -101,7 +101,7 @@ mod test_cli {
     }
 
     #[test]
-    fn it_errors_if_you_pass_neither_width_nor_height() {
+    fn it_fails_if_you_pass_neither_width_nor_height() {
         let output = get_failure(&["src/tests/red.png", "--out-dir=/tmp"]);
 
         let re = Regex::new(r"the following required arguments were not provided:").unwrap();
@@ -112,7 +112,7 @@ mod test_cli {
     }
 
     #[test]
-    fn it_errors_if_you_pass_a_non_image() {
+    fn it_fails_if_you_pass_a_non_image() {
         let output = get_failure(&["Cargo.toml", "--width=50", "--out-dir=/tmp"]);
 
         assert_eq!(output.exit_code, 1);
