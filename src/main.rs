@@ -138,10 +138,7 @@ mod test_cli {
         let output = get_failure(&["src/images/noise.jpg", "--width=50", "--out-dir=README.md"]);
 
         assert_eq!(output.exit_code, 1);
-        assert_eq!(
-            output.stderr,
-            "File exists (os error 17)\n"
-        );
+        assert_eq!(output.stderr, "File exists (os error 17)\n");
         assert_eq!(output.stdout, "");
     }
 
