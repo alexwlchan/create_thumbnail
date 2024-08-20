@@ -11,19 +11,15 @@ mod get_thumbnail_dimensions;
 mod is_animated_gif;
 
 use crate::create_parent_directory::create_parent_directory;
-use crate::get_thumbnail_dimensions::get_thumbnail_dimensions;
+use crate::get_thumbnail_dimensions::{get_thumbnail_dimensions, TargetDimension};
 use crate::is_animated_gif::is_animated_gif;
 
 /// Create a thumbnail for the image, and return the relative path of
 /// the thumbnail within the collection folder.
-///
-/// TODO: Having two Option<u32> arguments is confusing because they could
-/// easily be swapped.  Replace this with some sort of struct!
 pub fn create_thumbnail(
     path: &PathBuf,
     out_dir: &PathBuf,
-    width: Option<u32>,
-    height: Option<u32>,
+    target: TargetDimension,
 ) -> io::Result<PathBuf> {
     let thumbnail_path = out_dir.join(path.file_name().unwrap());
     create_parent_directory(&thumbnail_path)?;
@@ -31,15 +27,9 @@ pub fn create_thumbnail(
     // TODO: Does this check do what I think?
     assert!(*path != thumbnail_path);
 
-    println!("w = {:?}", width);
-    println!("h = {:?}", height);
-
-    let (new_width, new_height) = get_thumbnail_dimensions(&path, width, height)
+    let (new_width, new_height) = get_thumbnail_dimensions(&path, target)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
 
-    println!("w = {:?}, h = {:?}", new_width, new_height);
-
-    //
     if is_animated_gif(path)? {
         create_thumbnail::create_animated_gif_thumbnail(path, out_dir, new_width, new_height)
     } else {
@@ -52,17 +42,16 @@ mod test_create_thumbnail {
     use std::path::PathBuf;
 
     use super::create_thumbnail;
+    use crate::get_thumbnail_dimensions::TargetDimension;
     use crate::test_utils::{get_dimensions, test_dir};
 
     #[test]
     fn creates_an_animated_gif_thumbnail() {
         let gif_path = PathBuf::from("src/tests/animated_squares.gif");
         let out_dir = test_dir();
-        let target_width = Some(16);
-        let target_height = None;
+        let target = TargetDimension::MaxWidth(16);
 
-        let thumbnail_path =
-            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
+        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
 
         assert_eq!(thumbnail_path, out_dir.join("animated_squares.mp4"));
         assert!(thumbnail_path.exists());
@@ -72,11 +61,9 @@ mod test_create_thumbnail {
     fn creates_a_static_gif_thumbnail() {
         let gif_path = PathBuf::from("src/tests/yellow.gif");
         let out_dir = test_dir();
-        let target_width = Some(16);
-        let target_height = None;
+        let target = TargetDimension::MaxWidth(16);
 
-        let thumbnail_path =
-            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
+        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
 
         assert_eq!(thumbnail_path, out_dir.join("yellow.gif"));
         assert!(thumbnail_path.exists());
@@ -87,11 +74,9 @@ mod test_create_thumbnail {
     fn creates_a_png_thumbnail() {
         let gif_path = PathBuf::from("src/tests/red.png");
         let out_dir = test_dir();
-        let target_width = Some(16);
-        let target_height = None;
+        let target = TargetDimension::MaxWidth(16);
 
-        let thumbnail_path =
-            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
+        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
 
         assert_eq!(thumbnail_path, out_dir.join("red.png"));
         assert!(thumbnail_path.exists());
@@ -102,11 +87,9 @@ mod test_create_thumbnail {
     fn creates_a_jpeg_thumbnail() {
         let gif_path = PathBuf::from("src/tests/noise.jpg");
         let out_dir = test_dir();
-        let target_width = Some(16);
-        let target_height = None;
+        let target = TargetDimension::MaxWidth(16);
 
-        let thumbnail_path =
-            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
+        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
 
         assert_eq!(thumbnail_path, out_dir.join("noise.jpg"));
         assert!(thumbnail_path.exists());
@@ -117,11 +100,9 @@ mod test_create_thumbnail {
     fn creates_a_tif_thumbnail() {
         let gif_path = PathBuf::from("src/tests/green.tiff");
         let out_dir = test_dir();
-        let target_width = Some(16);
-        let target_height = None;
+        let target = TargetDimension::MaxHeight(16);
 
-        let thumbnail_path =
-            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
+        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
 
         assert_eq!(thumbnail_path, out_dir.join("green.tiff"));
         assert!(thumbnail_path.exists());
@@ -132,11 +113,9 @@ mod test_create_thumbnail {
     fn creates_a_webp_thumbnail() {
         let gif_path = PathBuf::from("src/tests/purple.webp");
         let out_dir = test_dir();
-        let target_width = Some(16);
-        let target_height = None;
+        let target = TargetDimension::MaxWidth(16);
 
-        let thumbnail_path =
-            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
+        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
 
         assert_eq!(thumbnail_path, out_dir.join("purple.webp"));
         assert!(thumbnail_path.exists());
@@ -173,7 +152,13 @@ fn main() {
 
     println!("args = {:?}", cli);
 
-    create_thumbnail(&cli.path, &cli.out_dir, cli.width, cli.height).unwrap();
+    let target = match (cli.width, cli.height) {
+        (Some(w), None) => TargetDimension::MaxWidth(w),
+        (None, Some(h)) => TargetDimension::MaxHeight(h),
+        _ => unreachable!(),
+    };
+
+    create_thumbnail(&cli.path, &cli.out_dir, target).unwrap();
 }
 
 #[cfg(test)]
