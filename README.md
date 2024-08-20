@@ -7,7 +7,6 @@ focusing on a small piece of code makes it better
     -> height only
 
 * happy path:
-    -> static GIF
     -> PNG
     -> JPEG
     -> TIF
