@@ -7,11 +7,8 @@ focusing on a small piece of code makes it better
     -> height only
 
 * happy path:
-    -> PNG
-    -> JPEG
-    -> TIF
-    -> WebP
     -> small file
+    -> test dimensions
 
 * errors:
     -> creates thumbnail directory

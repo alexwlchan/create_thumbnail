@@ -75,6 +75,62 @@ mod test_create_thumbnail {
         assert_eq!(thumbnail_path, out_dir.join("yellow.gif"));
         assert!(thumbnail_path.exists());
     }
+
+    #[test]
+    fn creates_a_png_thumbnail() {
+        let gif_path = PathBuf::from("src/tests/red.png");
+        let out_dir = test_dir();
+        let target_width = Some(16);
+        let target_height = None;
+
+        let thumbnail_path =
+            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
+
+        assert_eq!(thumbnail_path, out_dir.join("red.png"));
+        assert!(thumbnail_path.exists());
+    }
+
+    #[test]
+    fn creates_a_jpeg_thumbnail() {
+        let gif_path = PathBuf::from("src/tests/noise.jpg");
+        let out_dir = test_dir();
+        let target_width = Some(16);
+        let target_height = None;
+
+        let thumbnail_path =
+            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
+
+        assert_eq!(thumbnail_path, out_dir.join("noise.jpg"));
+        assert!(thumbnail_path.exists());
+    }
+
+    #[test]
+    fn creates_a_tif_thumbnail() {
+        let gif_path = PathBuf::from("src/tests/green.tiff");
+        let out_dir = test_dir();
+        let target_width = Some(16);
+        let target_height = None;
+
+        let thumbnail_path =
+            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
+
+        assert_eq!(thumbnail_path, out_dir.join("green.tiff"));
+        assert!(thumbnail_path.exists());
+    }
+
+    #[test]
+    fn creates_a_webp_thumbnail() {
+        let gif_path = PathBuf::from("src/tests/purple.webp");
+        let out_dir = test_dir();
+        let target_width = Some(16);
+        let target_height = None;
+
+        let thumbnail_path =
+            create_thumbnail(&gif_path, &out_dir, target_width, target_height).unwrap();
+
+        assert_eq!(thumbnail_path, out_dir.join("purple.webp"));
+        assert!(thumbnail_path.exists());
+    }
 }
 
 #[derive(Debug, Parser)]
