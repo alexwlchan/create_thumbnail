@@ -192,7 +192,7 @@ pub mod test_utils {
     ///
     /// This function does *not* create the directory, just the path.
     pub fn test_dir() -> PathBuf {
-        let tmp_dir = tempdir::TempDir::new("testing").unwrap();
+        let tmp_dir = tempfile::tempdir().unwrap();
 
         tmp_dir.path().to_owned()
     }
