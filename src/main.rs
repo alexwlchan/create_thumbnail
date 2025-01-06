@@ -58,75 +58,85 @@ fn main() {
 mod test_cli {
     use std::path::PathBuf;
 
-    use regex::Regex;
+    use predicates::prelude::*;
 
-    use crate::test_utils::{get_dimensions, get_failure, get_success};
+    use crate::run_command;
+    use crate::test_utils::get_dimensions;
 
     #[test]
     fn it_creates_a_thumbnail_with_max_width() {
-        let output = get_success(&["src/tests/red.png", "--width=50", "--out-dir=/tmp"]);
+        let result = run_command!("src/tests/red.png", "--width=50", "--out-dir=/tmp");
 
-        assert_eq!(output.exit_code, 0);
-        assert_eq!(output.stdout, "/tmp/red.png");
-        assert_eq!(output.stderr, "");
+        result.success().stdout("/tmp/red.png").stderr("");
+
         assert_eq!(get_dimensions(&PathBuf::from("/tmp/red.png")), (50, 100));
     }
 
     #[test]
     fn it_creates_a_thumbnail_with_max_height() {
-        let output = get_success(&["src/tests/noise.jpg", "--height=128", "--out-dir=/tmp"]);
+        let result = run_command!("src/tests/noise.jpg", "--height=128", "--out-dir=/tmp");
 
-        assert_eq!(output.exit_code, 0);
-        assert_eq!(output.stdout, "/tmp/noise.jpg");
-        assert_eq!(output.stderr, "");
+        result.success().stdout("/tmp/noise.jpg").stderr("");
+
         assert_eq!(get_dimensions(&PathBuf::from("/tmp/noise.jpg")), (64, 128));
     }
 
     #[test]
     fn it_fails_if_you_pass_width_and_height() {
-        let output = get_failure(&[
+        let result = run_command!(
             "src/tests/red.png",
             "--width=100",
             "--height=100",
             "--out-dir=/tmp",
-        ]);
+        );
 
-        let re =
-            Regex::new(r"the argument '--width <WIDTH>' cannot be used with '--height <HEIGHT>'")
-                .unwrap();
-        assert!(re.is_match(&output.stderr));
+        let is_invalid_args_err = predicate::str::is_match(
+            r"the argument '--width <WIDTH>' cannot be used with '--height <HEIGHT>'",
+        )
+        .unwrap();
 
-        assert_eq!(output.exit_code, 2);
-        assert_eq!(output.stdout, "");
+        result
+            .failure()
+            .code(2)
+            .stdout("")
+            .stderr(is_invalid_args_err);
     }
 
     #[test]
     fn it_fails_if_you_pass_neither_width_nor_height() {
-        let output = get_failure(&["src/tests/red.png", "--out-dir=/tmp"]);
+        let result = run_command!("src/tests/red.png", "--out-dir=/tmp");
 
-        let re = Regex::new(r"the following required arguments were not provided:").unwrap();
-        assert!(re.is_match(&output.stderr));
+        let is_missing_args_err =
+            predicate::str::is_match(r"the following required arguments were not provided:")
+                .unwrap();
 
-        assert_eq!(output.exit_code, 2);
-        assert_eq!(output.stdout, "");
+        result
+            .failure()
+            .code(2)
+            .stdout("")
+            .stderr(is_missing_args_err);
     }
 
     #[test]
     fn it_fails_if_you_pass_a_non_existent_file() {
-        let output = get_failure(&["doesnotexist.txt", "--width=50", "--out-dir=/tmp"]);
+        let result = run_command!("doesnotexist.txt", "--width=50", "--out-dir=/tmp");
 
-        assert_eq!(output.exit_code, 1);
-        assert_eq!(output.stderr, "No such file or directory (os error 2)\n");
-        assert_eq!(output.stdout, "");
+        result
+            .failure()
+            .code(1)
+            .stdout("")
+            .stderr("No such file or directory (os error 2)\n");
     }
 
     #[test]
     fn it_fails_if_you_pass_a_non_image() {
-        let output = get_failure(&["Cargo.toml", "--width=50", "--out-dir=/tmp"]);
+        let result = run_command!("Cargo.toml", "--width=50", "--out-dir=/tmp");
 
-        assert_eq!(output.exit_code, 1);
-        assert_eq!(output.stderr, "The image format could not be determined\n");
-        assert_eq!(output.stdout, "");
+        result
+            .failure()
+            .code(1)
+            .stdout("")
+            .stderr("The image format could not be determined\n");
     }
 
     // TODO: Improve this error message.
@@ -135,57 +145,52 @@ mod test_cli {
     // we'd return a more meaningful error message in this case.
     #[test]
     fn it_fails_if_out_dir_is_a_file() {
-        let output = get_failure(&["src/images/noise.jpg", "--width=50", "--out-dir=README.md"]);
+        let result = run_command!("src/images/noise.jpg", "--width=50", "--out-dir=README.md");
 
-        assert_eq!(output.exit_code, 1);
-        assert_eq!(output.stderr, "File exists (os error 17)\n");
-        assert_eq!(output.stdout, "");
+        result
+            .failure()
+            .code(1)
+            .stdout("")
+            .stderr("File exists (os error 17)\n");
     }
 
     #[test]
     fn it_fails_if_you_try_to_overwrite_the_original_file() {
-        let output = get_failure(&["src/images/noise.jpg", "--width=50", "--out-dir=src/images"]);
+        let result = run_command!("src/images/noise.jpg", "--width=50", "--out-dir=src/images");
 
-        assert_eq!(output.exit_code, 1);
-        assert_eq!(
-            output.stderr,
-            "Cannot write thumbnail to the same directory as the original image\n"
-        );
-        assert_eq!(output.stdout, "");
+        result
+            .failure()
+            .code(1)
+            .stdout("")
+            .stderr("Cannot write thumbnail to the same directory as the original image\n");
     }
 
     #[test]
     fn it_prints_the_version() {
-        let output = get_success(&["--version"]);
+        let result = run_command!("--version");
 
-        let re = Regex::new(r"^create_thumbnail [0-9]+\.[0-9]+\.[0-9]+\n$").unwrap();
+        // Match strings like `create_thumbnail 1.2.3`
+        let is_version_string =
+            predicate::str::is_match(r"^create_thumbnail [0-9]+\.[0-9]+\.[0-9]+\n$").unwrap();
 
-        assert!(re.is_match(&output.stdout));
-
-        assert_eq!(output.exit_code, 0);
-        assert_eq!(output.stderr, "");
+        result.success().stdout(is_version_string).stderr("");
     }
 
     #[test]
     fn it_prints_the_help() {
-        let output = get_success(&["--help"]);
+        let result = run_command!("--help");
 
-        let re = Regex::new(r"create_thumbnail --out-dir").unwrap();
+        // Match strings like `dominant_colours 1.2.3`
+        let is_help_text = predicate::str::is_match(r"create_thumbnail --out-dir").unwrap();
 
-        assert!(re.is_match(&output.stdout));
-
-        assert_eq!(output.exit_code, 0);
-        assert_eq!(output.stderr, "");
+        result.success().stdout(is_help_text).stderr("");
     }
 }
 
 #[cfg(test)]
 pub mod test_utils {
     use std::path::PathBuf;
-    use std::str;
 
-    use assert_cmd::assert::OutputAssertExt;
-    use assert_cmd::Command;
     use image::GenericImageView;
 
     /// Return a path to a temporary directory to use for testing.
@@ -203,38 +208,33 @@ pub mod test_utils {
 
         img.dimensions()
     }
+}
 
-    pub struct DcOutput {
-        pub exit_code: i32,
-        pub stdout: String,
-        pub stderr: String,
-    }
+#[cfg(test)]
+#[macro_use]
+mod test_helpers {
+    /// Run this command-line tool with zero or more arguments:
+    ///
+    ///     run_command!();
+    ///     run_command!("shape.png");
+    ///     run_command!("shape.png", "--sides=4", "--colour=red");
+    ///
+    /// This returns an `assert_cmd::assert::Assert` that will allow
+    /// you to make assertions about the output.
+    /// See https://docs.rs/assert_cmd/latest/assert_cmd/assert/struct.Assert.html
+    #[macro_export]
+    macro_rules! run_command {
+        () => {
+            assert_cmd::Command::cargo_bin(env!("CARGO_PKG_NAME"))
+                       .unwrap()
+                       .assert()
+        };
 
-    pub fn get_success(args: &[&str]) -> DcOutput {
-        let mut cmd = Command::cargo_bin("create_thumbnail").unwrap();
-        let output = cmd
-            .args(args)
-            .unwrap()
-            .assert()
-            .success()
-            .get_output()
-            .to_owned();
-
-        DcOutput {
-            exit_code: output.status.code().unwrap(),
-            stdout: str::from_utf8(&output.stdout).unwrap().to_owned(),
-            stderr: str::from_utf8(&output.stderr).unwrap().to_owned(),
-        }
-    }
-
-    pub fn get_failure(args: &[&str]) -> DcOutput {
-        let mut cmd = Command::cargo_bin("create_thumbnail").unwrap();
-        let output = cmd.args(args).unwrap_err().as_output().unwrap().to_owned();
-
-        DcOutput {
-            exit_code: output.status.code().unwrap(),
-            stdout: str::from_utf8(&output.stdout).unwrap().to_owned(),
-            stderr: str::from_utf8(&output.stderr).unwrap().to_owned(),
-        }
+        ($($arg:expr),+ $(,)?) => {{
+            assert_cmd::Command::cargo_bin(env!("CARGO_PKG_NAME"))
+                       .unwrap()
+                       .args(&[$($arg),*])
+                       .assert()
+        }};
     }
 }
