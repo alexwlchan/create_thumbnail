@@ -7,5 +7,5 @@ edition = "2021"
 assert_cmd = "2.0.14"
 clap = { version = "4", features = ["derive"] }
 image = "0.25.5"
-regex = "1.11.1"
+predicates = "3"
 tempfile = "3"
