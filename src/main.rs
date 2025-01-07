@@ -58,59 +58,69 @@ fn main() {
 mod test_cli {
     use std::path::PathBuf;
 
+    use assert_cmd::Command;
     use predicates::prelude::*;
 
-    use crate::run_command;
     use crate::test_utils::get_dimensions;
 
     #[test]
     fn it_creates_a_thumbnail_with_max_width() {
-        let result = run_command!("src/tests/red.png", "--width=50", "--out-dir=/tmp");
-
-        result.success().stdout("/tmp/red.png").stderr("");
+        Command::cargo_bin("create_thumbnail")
+            .unwrap()
+            .args(&["src/tests/red.png", "--width=50", "--out-dir=/tmp"])
+            .assert()
+            .success()
+            .stdout("/tmp/red.png")
+            .stderr("");
 
         assert_eq!(get_dimensions(&PathBuf::from("/tmp/red.png")), (50, 100));
     }
 
     #[test]
     fn it_creates_a_thumbnail_with_max_height() {
-        let result = run_command!("src/tests/noise.jpg", "--height=128", "--out-dir=/tmp");
-
-        result.success().stdout("/tmp/noise.jpg").stderr("");
+        Command::cargo_bin("create_thumbnail")
+            .unwrap()
+            .args(&["src/tests/noise.jpg", "--height=128", "--out-dir=/tmp"])
+            .assert()
+            .success()
+            .stdout("/tmp/noise.jpg")
+            .stderr("");
 
         assert_eq!(get_dimensions(&PathBuf::from("/tmp/noise.jpg")), (64, 128));
     }
 
     #[test]
     fn it_fails_if_you_pass_width_and_height() {
-        let result = run_command!(
-            "src/tests/red.png",
-            "--width=100",
-            "--height=100",
-            "--out-dir=/tmp",
-        );
-
-        let is_invalid_args_err = predicate::str::is_match(
+        let invalid_args = predicate::str::is_match(
             r"the argument '--width <WIDTH>' cannot be used with '--height <HEIGHT>'",
         )
         .unwrap();
 
-        result
+        Command::cargo_bin("create_thumbnail")
+            .unwrap()
+            .args(&[
+                "src/tests/red.png",
+                "--width=100",
+                "--height=100",
+                "--out-dir=/tmp",
+            ])
+            .assert()
             .failure()
             .code(2)
             .stdout("")
-            .stderr(is_invalid_args_err);
+            .stderr(invalid_args);
     }
 
     #[test]
     fn it_fails_if_you_pass_neither_width_nor_height() {
-        let result = run_command!("src/tests/red.png", "--out-dir=/tmp");
-
         let is_missing_args_err =
             predicate::str::is_match(r"the following required arguments were not provided:")
                 .unwrap();
 
-        result
+        Command::cargo_bin("create_thumbnail")
+            .unwrap()
+            .args(&["src/tests/red.png", "--out-dir=/tmp"])
+            .assert()
             .failure()
             .code(2)
             .stdout("")
@@ -119,9 +129,10 @@ mod test_cli {
 
     #[test]
     fn it_fails_if_you_pass_a_non_existent_file() {
-        let result = run_command!("doesnotexist.txt", "--width=50", "--out-dir=/tmp");
-
-        result
+        Command::cargo_bin("create_thumbnail")
+            .unwrap()
+            .args(&["doesnotexist.txt", "--width=50", "--out-dir=/tmp"])
+            .assert()
             .failure()
             .code(1)
             .stdout("")
@@ -130,9 +141,10 @@ mod test_cli {
 
     #[test]
     fn it_fails_if_you_pass_a_non_image() {
-        let result = run_command!("Cargo.toml", "--width=50", "--out-dir=/tmp");
-
-        result
+        Command::cargo_bin("create_thumbnail")
+            .unwrap()
+            .args(&["Cargo.toml", "--width=50", "--out-dir=/tmp"])
+            .assert()
             .failure()
             .code(1)
             .stdout("")
@@ -145,9 +157,10 @@ mod test_cli {
     // we'd return a more meaningful error message in this case.
     #[test]
     fn it_fails_if_out_dir_is_a_file() {
-        let result = run_command!("src/images/noise.jpg", "--width=50", "--out-dir=README.md");
-
-        result
+        Command::cargo_bin("create_thumbnail")
+            .unwrap()
+            .args(&["src/images/noise.jpg", "--width=50", "--out-dir=README.md"])
+            .assert()
             .failure()
             .code(1)
             .stdout("")
@@ -156,9 +169,10 @@ mod test_cli {
 
     #[test]
     fn it_fails_if_you_try_to_overwrite_the_original_file() {
-        let result = run_command!("src/images/noise.jpg", "--width=50", "--out-dir=src/images");
-
-        result
+        Command::cargo_bin("create_thumbnail")
+            .unwrap()
+            .args(&["src/images/noise.jpg", "--width=50", "--out-dir=src/images"])
+            .assert()
             .failure()
             .code(1)
             .stdout("")
@@ -167,23 +181,31 @@ mod test_cli {
 
     #[test]
     fn it_prints_the_version() {
-        let result = run_command!("--version");
-
         // Match strings like `create_thumbnail 1.2.3`
         let is_version_string =
             predicate::str::is_match(r"^create_thumbnail [0-9]+\.[0-9]+\.[0-9]+\n$").unwrap();
 
-        result.success().stdout(is_version_string).stderr("");
+        Command::cargo_bin("create_thumbnail")
+            .unwrap()
+            .arg("--version")
+            .assert()
+            .success()
+            .stdout(is_version_string)
+            .stderr("");
     }
 
     #[test]
     fn it_prints_the_help() {
-        let result = run_command!("--help");
-
         // Match strings like `dominant_colours 1.2.3`
         let is_help_text = predicate::str::is_match(r"create_thumbnail --out-dir").unwrap();
 
-        result.success().stdout(is_help_text).stderr("");
+        Command::cargo_bin("create_thumbnail")
+            .unwrap()
+            .arg("--help")
+            .assert()
+            .success()
+            .stdout(is_help_text)
+            .stderr("");
     }
 }
 
@@ -207,34 +229,5 @@ pub mod test_utils {
         let img = image::open(path).unwrap();
 
         img.dimensions()
-    }
-}
-
-#[cfg(test)]
-#[macro_use]
-mod test_helpers {
-    /// Run this command-line tool with zero or more arguments:
-    ///
-    ///     run_command!();
-    ///     run_command!("shape.png");
-    ///     run_command!("shape.png", "--sides=4", "--colour=red");
-    ///
-    /// This returns an `assert_cmd::assert::Assert` that will allow
-    /// you to make assertions about the output.
-    /// See https://docs.rs/assert_cmd/latest/assert_cmd/assert/struct.Assert.html
-    #[macro_export]
-    macro_rules! run_command {
-        () => {
-            assert_cmd::Command::cargo_bin(env!("CARGO_PKG_NAME"))
-                       .unwrap()
-                       .assert()
-        };
-
-        ($($arg:expr),+ $(,)?) => {{
-            assert_cmd::Command::cargo_bin(env!("CARGO_PKG_NAME"))
-                       .unwrap()
-                       .args(&[$($arg),*])
-                       .assert()
-        }};
     }
 }
