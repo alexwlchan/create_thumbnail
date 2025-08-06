@@ -7,7 +7,7 @@ use image::imageops::FilterType;
 
 use crate::create_parent_directory::create_parent_directory;
 use crate::get_thumbnail_dimensions::{get_thumbnail_dimensions, TargetDimension};
-use crate::is_animated_gif::is_animated_gif;
+use crate::is_animated::is_animated;
 
 /// Create a thumbnail for the image, and return the relative path of
 /// the thumbnail within the collection folder.
@@ -31,8 +31,8 @@ pub fn create_thumbnail(
     let (new_width, new_height) = get_thumbnail_dimensions(&path, target)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
 
-    if is_animated_gif(path)? {
-        create_animated_gif_thumbnail(path, out_dir, new_width, new_height)
+    if is_animated(path)? {
+        create_animated_thumbnail(path, out_dir, new_width, new_height)
     } else {
         create_static_thumbnail(path, out_dir, new_width, new_height)
     }
@@ -49,6 +49,18 @@ mod test_create_thumbnail {
     #[test]
     fn creates_an_animated_gif_thumbnail() {
         let gif_path = PathBuf::from("src/tests/animated_squares.gif");
+        let out_dir = test_dir();
+        let target = TargetDimension::MaxWidth(16);
+
+        let thumbnail_path = create_thumbnail(&gif_path, &out_dir, target).unwrap();
+
+        assert_eq!(thumbnail_path, out_dir.join("animated_squares.mp4"));
+        assert!(thumbnail_path.exists());
+    }
+
+    #[test]
+    fn creates_an_animated_webp_thumbnail() {
+        let gif_path = PathBuf::from("src/tests/animated_squares.webp");
         let out_dir = test_dir();
         let target = TargetDimension::MaxWidth(16);
 
@@ -169,13 +181,13 @@ fn ensure_even(x: u32) -> u32 {
 /// TODO: It would be nice to have a test for the case where `ffmpeg` isn't
 /// installed, but I'm not sure how to simulate that.
 ///
-pub fn create_animated_gif_thumbnail(
-    gif_path: &PathBuf,
+pub fn create_animated_thumbnail(
+    img_path: &PathBuf,
     out_dir: &PathBuf,
     width: u32,
     height: u32,
 ) -> io::Result<PathBuf> {
-    let file_name = gif_path.file_name().unwrap();
+    let file_name = img_path.file_name().unwrap();
     let thumbnail_path = out_dir.join(file_name).with_extension("mp4");
 
     // There's a subtlety here with ffmpeg I don't understand fully -- if
@@ -191,7 +203,7 @@ pub fn create_animated_gif_thumbnail(
     let output = Command::new("ffmpeg")
         .args([
             "-i",
-            gif_path.to_str().unwrap(),
+            img_path.to_str().unwrap(),
             "-movflags",
             "faststart",
             "-pix_fmt",

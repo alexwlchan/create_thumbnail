@@ -7,7 +7,7 @@ use clap::{ArgGroup, Parser};
 mod create_parent_directory;
 mod create_thumbnail;
 mod get_thumbnail_dimensions;
-mod is_animated_gif;
+mod is_animated;
 
 use crate::create_thumbnail::create_thumbnail;
 use crate::get_thumbnail_dimensions::TargetDimension;
