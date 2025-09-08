@@ -148,7 +148,7 @@ mod test_cli {
             .failure()
             .code(1)
             .stdout("")
-            .stderr("The image format could not be determined\n");
+            .stderr("The file extension `.\"toml\"` was not recognized as an image format\n");
     }
 
     // TODO: Improve this error message.
