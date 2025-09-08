@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use image::GenericImageView;
 
+use crate::errors::ThumbnailError;
+
 /// Represents the target dimensions of the thumbnail.
 ///
 /// The user can choose a max width, or a max height, but not both.
@@ -26,7 +28,7 @@ pub enum TargetDimension {
 pub fn get_thumbnail_dimensions(
     path: &PathBuf,
     target: TargetDimension,
-) -> Result<(u32, u32), image::error::ImageError> {
+) -> Result<(u32, u32), ThumbnailError> {
     let img = image::open(path)?;
 
     let (new_width, new_height) = match target {

@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::Result;
+use std::io;
 use std::path::PathBuf;
 
 /// Create the parent directory of a given path.
@@ -9,7 +9,7 @@ use std::path::PathBuf;
 ///     create_parent_directory("path/to/images/index.html")
 ///      ~> creates "path/to/images/"
 ///
-pub fn create_parent_directory(path: &PathBuf) -> Result<()> {
+pub fn create_parent_directory(path: &PathBuf) -> io::Result<()> {
     // Quoting from the Rust docs for PathBuf.parent() [1]:
     //
     //     Returns None if the path terminates in a root or prefix,
