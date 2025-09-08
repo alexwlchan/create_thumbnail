@@ -6,6 +6,7 @@ use clap::{ArgGroup, Parser};
 
 mod create_parent_directory;
 mod create_thumbnail;
+mod errors;
 mod get_thumbnail_dimensions;
 mod is_animated_gif;
 
@@ -136,7 +137,7 @@ mod test_cli {
             .failure()
             .code(1)
             .stdout("")
-            .stderr("No such file or directory (os error 2)\n");
+            .stderr("Failed to open image: No such file or directory (os error 2)\n");
     }
 
     #[test]
@@ -148,7 +149,7 @@ mod test_cli {
             .failure()
             .code(1)
             .stdout("")
-            .stderr("The file extension `.\"toml\"` was not recognized as an image format\n");
+            .stderr("Failed to open image: The file extension `.\"toml\"` was not recognized as an image format\n");
     }
 
     // TODO: Improve this error message.
@@ -164,7 +165,7 @@ mod test_cli {
             .failure()
             .code(1)
             .stdout("")
-            .stderr("File exists (os error 17)\n");
+            .stderr("I/O error: File exists (os error 17)\n");
     }
 
     #[test]
@@ -176,7 +177,7 @@ mod test_cli {
             .failure()
             .code(1)
             .stdout("")
-            .stderr("Cannot write thumbnail to the same directory as the original image\n");
+            .stderr("Cannot write thumbnail to the same path as the original image\n");
     }
 
     #[test]

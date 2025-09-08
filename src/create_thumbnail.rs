@@ -1,4 +1,3 @@
-use std::io;
 use std::path::PathBuf;
 use std::process::Command;
 use std::str;
@@ -6,6 +5,7 @@ use std::str;
 use image::imageops::FilterType;
 
 use crate::create_parent_directory::create_parent_directory;
+use crate::errors::ThumbnailError;
 use crate::get_thumbnail_dimensions::{get_thumbnail_dimensions, TargetDimension};
 use crate::is_animated_gif::is_animated_gif;
 
@@ -15,21 +15,17 @@ pub fn create_thumbnail(
     path: &PathBuf,
     out_dir: &PathBuf,
     target: TargetDimension,
-) -> io::Result<PathBuf> {
-    let thumbnail_path = out_dir.join(path.file_name().unwrap());
+) -> Result<PathBuf, ThumbnailError> {
+    let file_name = path.file_name().ok_or(ThumbnailError::MissingFileName)?;
+    let thumbnail_path = out_dir.join(file_name);
     create_parent_directory(&thumbnail_path)?;
 
     // Make sure we don't overwrite the original image with a thumbnail
     if *path == thumbnail_path {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Cannot write thumbnail to the same directory as the original image",
-        ));
+        return Err(ThumbnailError::SameInputOutputPath);
     }
-    assert!(*path != thumbnail_path);
 
-    let (new_width, new_height) = get_thumbnail_dimensions(&path, target)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+    let (new_width, new_height) = get_thumbnail_dimensions(&path, target)?;
 
     if is_animated_gif(path)? {
         create_animated_gif_thumbnail(path, out_dir, new_width, new_height)
@@ -174,9 +170,19 @@ pub fn create_animated_gif_thumbnail(
     out_dir: &PathBuf,
     width: u32,
     height: u32,
-) -> io::Result<PathBuf> {
-    let file_name = gif_path.file_name().unwrap();
+) -> Result<PathBuf, ThumbnailError> {
+    let file_name = gif_path
+        .file_name()
+        .ok_or(ThumbnailError::MissingFileName)?;
+
     let thumbnail_path = out_dir.join(file_name).with_extension("mp4");
+
+    let gif_path_str = gif_path
+        .to_str()
+        .ok_or(ThumbnailError::PathConversionError)?;
+    let thumbnail_path_str = thumbnail_path
+        .to_str()
+        .ok_or(ThumbnailError::PathConversionError)?;
 
     // There's a subtlety here with ffmpeg I don't understand fully -- if
     // the width/height aren't even, it doesn't create the MP4, instead
@@ -191,26 +197,23 @@ pub fn create_animated_gif_thumbnail(
     let output = Command::new("ffmpeg")
         .args([
             "-i",
-            gif_path.to_str().unwrap(),
+            gif_path_str,
             "-movflags",
             "faststart",
             "-pix_fmt",
             "yuv420p",
             "-vf",
             &dimension_str,
-            thumbnail_path.to_str().unwrap(),
+            thumbnail_path_str,
         ])
         .output()
-        .expect("failed to create thumbnail");
+        .map_err(|e| ThumbnailError::CommandFailed(format!("Failed to run ffmpeg: {}", e)))?;
 
     if output.status.success() {
         Ok(thumbnail_path)
     } else {
-        let error_message = format!(
-            "Unable to invoke ffmpeg!\nstderr from ffmpeg:\n{}",
-            str::from_utf8(&output.stderr).unwrap()
-        );
-        Err(io::Error::new(io::ErrorKind::Other, error_message))
+        let stderr = str::from_utf8(&output.stderr)?;
+        Err(ThumbnailError::CommandFailed(stderr.to_string()))
     }
 }
 
@@ -218,22 +221,23 @@ pub fn create_animated_gif_thumbnail(
 ///
 /// This function assumes that the original image file definitely exists.
 ///
-/// TODO: Get rid of the use of `unwrap()` in this code.
-///
 pub fn create_static_thumbnail(
     image_path: &PathBuf,
     out_dir: &PathBuf,
     width: u32,
     height: u32,
-) -> io::Result<PathBuf> {
-    let file_name = image_path.file_name().unwrap();
+) -> Result<PathBuf, ThumbnailError> {
+    let file_name = image_path
+        .file_name()
+        .ok_or(ThumbnailError::MissingFileName)?;
+
     let thumbnail_path = out_dir.join(file_name);
 
-    let img = image::open(image_path).unwrap();
+    let img = image::open(image_path).map_err(ThumbnailError::ImageOpenError)?;
 
     img.resize(width, height, FilterType::Lanczos3)
         .save(&thumbnail_path)
-        .unwrap();
+        .map_err(ThumbnailError::ImageSaveError)?;
 
     Ok(thumbnail_path)
 }
