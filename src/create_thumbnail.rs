@@ -3,6 +3,7 @@ use std::process::Command;
 use std::str;
 
 use image::imageops::FilterType;
+use image::{DynamicImage, ImageDecoder, ImageReader};
 
 use crate::create_parent_directory::create_parent_directory;
 use crate::errors::ThumbnailError;
@@ -143,6 +144,22 @@ mod test_create_thumbnail {
         assert!(thumbnail_path.exists());
         assert_eq!(get_dimensions(&thumbnail_path), (128, 256));
     }
+
+    #[test]
+    fn it_applies_exif_orientation() {
+        // This source image comes from Dave Perrett's exif-orientation-examples
+        // repo, and is used under MIT.
+        // See https://github.com/recurser/exif-orientation-examples
+        let img_path = PathBuf::from("src/tests/Landscape_5.jpg");
+        let out_dir = test_dir();
+        let target = TargetDimension::MaxWidth(180);
+
+        let thumbnail_path = create_thumbnail(&img_path, &out_dir, target).unwrap();
+
+        assert_eq!(thumbnail_path, out_dir.join("Landscape_5.jpg"));
+        assert!(thumbnail_path.exists());
+        assert_eq!(get_dimensions(&thumbnail_path), (180, 120));
+    }
 }
 
 /// Return this value if it's even, or the closest value which is even.
@@ -233,7 +250,10 @@ pub fn create_static_thumbnail(
 
     let thumbnail_path = out_dir.join(file_name);
 
-    let img = image::open(image_path).map_err(ThumbnailError::ImageOpenError)?;
+    let mut decoder = ImageReader::open(image_path)?.into_decoder()?;
+    let orientation = decoder.orientation()?;
+    let mut img = DynamicImage::from_decoder(decoder)?;
+    img.apply_orientation(orientation);
 
     img.resize(width, height, FilterType::Lanczos3)
         .save(&thumbnail_path)
