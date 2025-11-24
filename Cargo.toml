@@ -6,6 +6,6 @@ edition = "2021"
 [dependencies]
 assert_cmd = "2.0.17"
 clap = { version = "4", features = ["derive"] }
-image = "0.25.8"
+image = "0.25.9"
 predicates = "3"
 tempfile = "3"
