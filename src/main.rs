@@ -55,6 +55,10 @@ fn main() {
     };
 }
 
+#[expect(
+    deprecated,
+    reason = "cargo_bin is deprecated, cargo_bin! is not, `use` does not differentiate them. See https://github.com/assert-rs/assert_cmd/issues/258"
+)]
 #[cfg(test)]
 mod test_cli {
     use std::path::PathBuf;
