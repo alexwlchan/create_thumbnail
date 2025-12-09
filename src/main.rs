@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use clap::{ArgGroup, Parser};
+use clap::Parser;
 
 mod create_parent_directory;
 mod create_thumbnail;
@@ -15,11 +15,6 @@ use crate::get_thumbnail_dimensions::TargetDimension;
 
 #[derive(Debug, Parser)]
 #[clap(version, about)]
-#[clap(group(
-  ArgGroup::new("dimensions")
-      .required(true)
-      .args(&["height", "width"]),
-))]
 struct Cli {
     /// Path to the image to be thumbnailed
     path: PathBuf,
@@ -41,9 +36,15 @@ fn main() {
     let cli = Cli::parse();
 
     let target = match (cli.width, cli.height) {
+        (Some(w), Some(h)) => TargetDimension::BoundingBox(w, h),
         (Some(w), None) => TargetDimension::MaxWidth(w),
         (None, Some(h)) => TargetDimension::MaxHeight(h),
-        _ => unreachable!(),
+        _ => {
+            eprintln!(
+                "Failed to create thumbnail: you must pass at least one of --width or --height"
+            );
+            std::process::exit(1);
+        }
     };
 
     match create_thumbnail(&cli.path, &cli.out_dir, target) {
@@ -95,41 +96,35 @@ mod test_cli {
     }
 
     #[test]
-    fn it_fails_if_you_pass_width_and_height() {
-        let invalid_args = predicate::str::is_match(
-            r"the argument '--width <WIDTH>' cannot be used with '--height <HEIGHT>'",
-        )
-        .unwrap();
-
+    fn it_creates_a_thumbnail_with_a_bounding_box() {
         Command::cargo_bin("create_thumbnail")
             .unwrap()
             .args(&[
-                "src/tests/red.png",
-                "--width=100",
-                "--height=100",
+                "src/tests/noise.jpg",
+                "--width=64",
+                "--height=64",
                 "--out-dir=/tmp",
             ])
             .assert()
-            .failure()
-            .code(2)
-            .stdout("")
-            .stderr(invalid_args);
+            .success()
+            .stdout("/tmp/noise.jpg")
+            .stderr("");
+
+        assert_eq!(get_dimensions(&PathBuf::from("/tmp/noise.jpg")), (32, 64));
     }
 
     #[test]
     fn it_fails_if_you_pass_neither_width_nor_height() {
-        let is_missing_args_err =
-            predicate::str::is_match(r"the following required arguments were not provided:")
-                .unwrap();
-
         Command::cargo_bin("create_thumbnail")
             .unwrap()
             .args(&["src/tests/red.png", "--out-dir=/tmp"])
             .assert()
             .failure()
-            .code(2)
+            .code(1)
             .stdout("")
-            .stderr(is_missing_args_err);
+            .stderr(
+                "Failed to create thumbnail: you must pass at least one of --width or --height\n",
+            );
     }
 
     #[test]
@@ -201,8 +196,9 @@ mod test_cli {
 
     #[test]
     fn it_prints_the_help() {
-        // Match strings like `dominant_colours 1.2.3`
-        let is_help_text = predicate::str::is_match(r"create_thumbnail --out-dir").unwrap();
+        // Match strings like `create_thumbnail 1.2.3`
+        let is_help_text =
+            predicate::str::is_match(r"create_thumbnail \[OPTIONS\] --out-dir").unwrap();
 
         Command::cargo_bin("create_thumbnail")
             .unwrap()

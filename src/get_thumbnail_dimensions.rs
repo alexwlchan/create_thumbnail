@@ -5,19 +5,14 @@ use image::GenericImageView;
 use crate::errors::ThumbnailError;
 
 /// Represents the target dimensions of the thumbnail.
-///
-/// The user can choose a max width, or a max height, but not both.
 pub enum TargetDimension {
+    BoundingBox(u32, u32),
     MaxWidth(u32),
     MaxHeight(u32),
 }
 
 /// Given the path to the original image and the target width/height,
 /// calculate the dimensions of the new image.
-///
-/// This function expects that exactly one of width/height will be
-/// specified, and then the image will be resized to be no larger
-/// than this dimension.
 ///
 /// If the image is smaller than the target dimensions, it will be
 /// left as-is.
@@ -31,15 +26,38 @@ pub fn get_thumbnail_dimensions(
 ) -> Result<(u32, u32), ThumbnailError> {
     let img = image::open(path)?;
 
-    let (new_width, new_height) = match target {
-        TargetDimension::MaxWidth(w) if w >= img.width() => img.dimensions(),
-        TargetDimension::MaxHeight(h) if h >= img.height() => img.dimensions(),
+    Ok(calculate_dimensions(img.dimensions(), target))
+}
 
-        TargetDimension::MaxWidth(w) => (w, w * img.height() / img.width()),
-        TargetDimension::MaxHeight(h) => (h * img.width() / img.height(), h),
-    };
+// Calculate the dimensions of the new image, given the original dimensions
+// and target dimensions.
+fn calculate_dimensions(dimensions: (u32, u32), target: TargetDimension) -> (u32, u32) {
+    let (img_w, img_h) = dimensions;
 
-    Ok((new_width, new_height))
+    match target {
+        TargetDimension::MaxWidth(max_w) if max_w >= img_w => dimensions,
+        TargetDimension::MaxHeight(max_h) if max_h >= img_h => dimensions,
+
+        TargetDimension::MaxWidth(max_w) => (
+            max_w,
+            ((max_w as f64) * (img_h as f64) / (img_w as f64)).round() as u32,
+        ),
+        TargetDimension::MaxHeight(max_h) => (
+            ((max_h as f64) * (img_w as f64) / (img_h as f64)).round() as u32,
+            max_h,
+        ),
+
+        // The bounding box has a wider aspect ratio than the original image,
+        // so filter by height.
+        TargetDimension::BoundingBox(max_w, max_h)
+            if (max_w as f64) / (max_h as f64) >= (img_w as f64) / (img_h as f64) =>
+        {
+            calculate_dimensions(dimensions, TargetDimension::MaxHeight(max_h))
+        }
+        TargetDimension::BoundingBox(max_w, _) => {
+            calculate_dimensions(dimensions, TargetDimension::MaxWidth(max_w))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -48,66 +66,54 @@ mod test_get_thumbnail_dimensions {
 
     use super::*;
 
-    // The `red.png` file used in this test has dimensions 100×200
+    macro_rules! get_thumb_dimensions_tests {
+        ($($name:ident: $value:expr,)*) => {
+        $(
+            #[test]
+            fn $name() {
+                let (input, target, expected) = $value;
 
-    #[test]
-    fn with_target_width() {
-        let p = PathBuf::from("src/tests/red.png");
-
-        let target = TargetDimension::MaxWidth(50);
-
-        let dimensions = get_thumbnail_dimensions(&p, target);
-        assert_eq!(dimensions.unwrap(), (50, 100));
+                let dimensions = calculate_dimensions(input, target);
+                assert_eq!(dimensions, expected);
+            }
+        )*
+        }
     }
 
-    #[test]
-    fn with_target_height() {
-        let p = PathBuf::from("src/tests/red.png");
+    get_thumb_dimensions_tests! {
+        width_lt: ((100, 200), TargetDimension::MaxWidth(50),  ( 50, 100)),
+        width_eq: ((100, 200), TargetDimension::MaxWidth(100), (100, 200)),
+        width_gt: ((100, 200), TargetDimension::MaxWidth(200), (100, 200)),
 
-        let target = TargetDimension::MaxHeight(100);
+        height_lt: ((100, 200), TargetDimension::MaxHeight(100), ( 50, 100)),
+        height_eq: ((100, 200), TargetDimension::MaxHeight(200), (100, 200)),
+        height_gt: ((100, 200), TargetDimension::MaxHeight(400), (100, 200)),
 
-        let dimensions = get_thumbnail_dimensions(&p, target);
-        assert_eq!(dimensions.unwrap(), (50, 100));
-    }
+        // bounding box which is larger than the image in one or both
+        // dimensions
+        bbox_larger_w:  ((100, 200), TargetDimension::BoundingBox(500, 200), (100, 200)),
+        bbox_larger_h:  ((100, 200), TargetDimension::BoundingBox(100, 500), (100, 200)),
+        bbox_larger_wh: ((100, 200), TargetDimension::BoundingBox(500, 500), (100, 200)),
 
-    #[test]
-    fn leaves_image_as_is_if_target_width_greater_than_width() {
-        let p = PathBuf::from("src/tests/red.png");
+        // bounding box with an equal aspect ratio to the image
+        bbox_equal_lt: ((100, 200), TargetDimension::BoundingBox( 50, 100), ( 50, 100)),
+        bbox_equal_eq: ((100, 200), TargetDimension::BoundingBox(100, 200), (100, 200)),
+        bbox_equal_gt: ((100, 200), TargetDimension::BoundingBox(200, 400), (100, 200)),
 
-        let target = TargetDimension::MaxWidth(500);
+        // bounding box which is skinnier than the image
+        bbox_skinnier_lt: ((100, 200), TargetDimension::BoundingBox(10, 100), (10, 20)),
+        bbox_skinnier_eq: ((100, 200), TargetDimension::BoundingBox(20, 200), (20, 40)),
+        bbox_skinnier_gt: ((100, 200), TargetDimension::BoundingBox(40, 400), (40, 80)),
 
-        let dimensions = get_thumbnail_dimensions(&p, target);
-        assert_eq!(dimensions.unwrap(), (100, 200));
-    }
+        // bounding box which is wider than the image
+        bbox_wider_lt: ((100, 200), TargetDimension::BoundingBox(100, 20), (10, 20)),
+        bbox_wider_eq: ((100, 200), TargetDimension::BoundingBox(200, 40), (20, 40)),
+        bbox_wider_gt: ((100, 200), TargetDimension::BoundingBox(400, 80), (40, 80)),
 
-    #[test]
-    fn leaves_image_as_is_if_target_width_equal_to_width() {
-        let p = PathBuf::from("src/tests/red.png");
-
-        let target = TargetDimension::MaxWidth(500);
-
-        let dimensions = get_thumbnail_dimensions(&p, target);
-        assert_eq!(dimensions.unwrap(), (100, 200));
-    }
-
-    #[test]
-    fn leaves_image_as_is_if_target_height_greater_than_height() {
-        let p = PathBuf::from("src/tests/red.png");
-
-        let target = TargetDimension::MaxHeight(500);
-
-        let dimensions = get_thumbnail_dimensions(&p, target);
-        assert_eq!(dimensions.unwrap(), (100, 200));
-    }
-
-    #[test]
-    fn leaves_image_as_is_if_target_height_equal_to_height() {
-        let p = PathBuf::from("src/tests/red.png");
-
-        let target = TargetDimension::MaxHeight(500);
-
-        let dimensions = get_thumbnail_dimensions(&p, target);
-        assert_eq!(dimensions.unwrap(), (100, 200));
+        // case to ensure we do floating point division correctly, and
+        // aren't making rounding errors
+        fp_width:  ((500, 333), TargetDimension::MaxWidth(300),  (300, 200)),
+        fp_height: ((333, 500), TargetDimension::MaxHeight(300), (200, 300)),
     }
 
     #[test]

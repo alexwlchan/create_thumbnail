@@ -6,8 +6,8 @@ It takes three arguments:
 
 *   Your original image;
 *   The directory where you're storing thumbnails;
-*   The max allowed height or width of the thumbnail you want.
-    You constrain in one dimension, and it resizes the image to fit, preserving the aspect ratio of the original image.
+*   The max allowed height and/or width of the thumbnail you want.
+    It resizes the image to fit, preserving the aspect ratio of the original image.
 
 The tool prints the path to the newly-created thumbnail.
 Here are two examples:

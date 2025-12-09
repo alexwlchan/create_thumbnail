@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.1.0 - 2025-12-09
+
+You can now pass `--width` and `--height` together, and the thumbnail will be the smallest image that fits inside that bounding box.
+
 ## v1.0.2 - 2025-09-08
 
 Pay attention to EXIF orientation in input images, so thumbnails have the same rotation/reflection as the original.
