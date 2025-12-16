@@ -2,7 +2,9 @@
 
 ## v1.1.1 - 2025-12-09
 
-Pin the version of the image crate to 0.25.8; there's an issue with [artefacts in JPEG images](https://github.com/image-rs/image/issues/2688) in 0.25.9
+Pin the version of the image crate to 0.25.8; there's an issue with [artefacts in JPEG images](https://github.com/image-rs/image/issues/2688) in 0.25.9.
+
+This fixes a regression in v1.1.0.
 
 ## v1.1.0 - 2025-12-09
 
